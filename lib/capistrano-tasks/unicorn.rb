@@ -34,11 +34,9 @@ def def_unicorn(_namespace, opt = {})
     
     desc "upload the config file"
     task :upload_conf, :roles => roles do
-      put(<<-eof
+      put("
 pid '#{unicorn_pid}'
-worker_processes #{workers}
-eof
-, "#{current_path}/#{conf_file}")
+worker_processes #{workers}", "#{current_path}/#{conf_file}")
     end
 
     desc 'Start Unicorn'
