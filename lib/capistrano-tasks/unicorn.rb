@@ -2,10 +2,8 @@
 # define a task for a rails app running in unicorn
 def def_unicorn(_namespace, opt = {})
   roles = opt[:roles] || :app
-  port = opt[:port] || 3000 
-  workers = opt[:worker_processes] || 2
 
-  conf_file = "tmp/unicorn_conf.rb"
+  custom_conf_file
   
   namespace _namespace do
     
@@ -30,18 +28,9 @@ def def_unicorn(_namespace, opt = {})
     _cset(:app_env, (fetch(:rails_env) rescue 'production'))
     _cset(:unicorn_env, (fetch(:app_env)))
     _cset(:unicorn_bin, "unicorn")
-    _cset(:worker_processes, 2)
     
-    desc "upload the config file"
-    task :upload_conf, :roles => roles do
-      put("
-pid '#{unicorn_pid}'
-worker_processes #{workers}", "#{current_path}/#{conf_file}")
-    end
-
     desc 'Start Unicorn'
     task :start, :roles => roles, :except => {:no_release => true} do
-      upload_conf
       if remote_file_exists?(unicorn_pid)
         if process_exists?(unicorn_pid)
           logger.important("Unicorn is already running!", "Unicorn")
@@ -51,10 +40,10 @@ worker_processes #{workers}", "#{current_path}/#{conf_file}")
         end
       end
       
-      config_path = "#{current_path}/#{conf_file}"
+      config_path = "#{current_path}/config/unicorn/#{app_env}.rb"
       if remote_file_exists?(config_path)
         logger.important("Starting...", "Unicorn")
-        run "cd #{current_path} && BUNDLE_GEMFILE=#{current_path}/Gemfile bundle exec #{unicorn_bin} -c #{config_path} -E #{app_env} -D -p #{port}"
+        run "cd #{current_path} && BUNDLE_GEMFILE=#{current_path}/Gemfile bundle exec #{unicorn_bin} -c #{config_path} -E #{app_env} -D"
       else
         logger.important("Config file for \"#{unicorn_env}\" environment was not found at \"#{config_path}\"", "Unicorn")
       end
