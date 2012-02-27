@@ -3,8 +3,6 @@
 def def_unicorn(_namespace, opt = {})
   roles = opt[:roles] || :app
 
-  custom_conf_file
-  
   namespace _namespace do
     
     # This code is modified from the capistrano-unicorn gem:
