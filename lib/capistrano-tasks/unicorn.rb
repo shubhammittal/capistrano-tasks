@@ -3,6 +3,8 @@
 def def_unicorn(_namespace, opt = {})
   roles = opt[:roles] || :app
   port = opt[:port] || 3000 
+  workers = opt[:worker_processes] || 2
+
   conf_file = "tmp/unicorn_conf.rb"
   
   namespace _namespace do
@@ -28,10 +30,14 @@ def def_unicorn(_namespace, opt = {})
     _cset(:app_env, (fetch(:rails_env) rescue 'production'))
     _cset(:unicorn_env, (fetch(:app_env)))
     _cset(:unicorn_bin, "unicorn")
+    _cset(:worker_processes, 2)
     
     desc "upload the config file"
     task :upload_conf, :roles => roles do
-      put("pid \"#{unicorn_pid}\"", "#{current_path}/#{conf_file}")
+      put(<<-eof
+pid '#{unicorn_pid}'
+worker_processes #{workers}
+""", "#{current_path}/#{conf_file}")
     end
 
     desc 'Start Unicorn'
