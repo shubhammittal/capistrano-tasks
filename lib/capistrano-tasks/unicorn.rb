@@ -37,7 +37,8 @@ def def_unicorn(_namespace, opt = {})
       put(<<-eof
 pid '#{unicorn_pid}'
 worker_processes #{workers}
-""", "#{current_path}/#{conf_file}")
+eof
+, "#{current_path}/#{conf_file}")
     end
 
     desc 'Start Unicorn'
