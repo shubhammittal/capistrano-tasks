@@ -81,7 +81,7 @@ def def_unicorn(_namespace, opt = {})
     task :reload, :roles => roles, :except => {:no_release => true} do
       if remote_file_exists?(unicorn_pid) && process_exists?(unicorn_pid)
         logger.important("Stopping...", "Unicorn")
-        run "#{try_sudo} kill -s USR2 `cat #{unicorn_pid}`"
+        run "#{try_sudo} kill -s HUP `cat #{unicorn_pid}`"
       else
         start
       end
