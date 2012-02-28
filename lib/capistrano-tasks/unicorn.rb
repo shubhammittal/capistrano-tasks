@@ -2,6 +2,7 @@
 # define a task for a rails app running in unicorn
 def def_unicorn(_namespace, opt = {})
   roles = opt[:roles] || :app
+  bootup_timeout = opt[:bootup_timeout] || 30
 
   namespace _namespace do
     
@@ -26,6 +27,7 @@ def def_unicorn(_namespace, opt = {})
     _cset(:app_env, (fetch(:rails_env) rescue 'production'))
     _cset(:unicorn_env, (fetch(:app_env)))
     _cset(:unicorn_bin, "unicorn")
+    _cset(:bootup_timeout, bootup_timeout)
     
     desc 'Start Unicorn'
     task :start, :roles => roles, :except => {:no_release => true} do
@@ -81,7 +83,7 @@ def def_unicorn(_namespace, opt = {})
     task :reload, :roles => roles, :except => {:no_release => true} do
       if remote_file_exists?(unicorn_pid) && process_exists?(unicorn_pid)
         logger.important("Stopping...", "Unicorn")
-        run "export OLD_PID=`cat #{unicorn_pid}`; kill -s USR2 $OLD_PID && sleep 30 && kill -s QUIT $OLD_PID"
+        run "export OLD_PID=`cat #{unicorn_pid}`; kill -s USR2 $OLD_PID && sleep #{bootup_timeout} && kill -s QUIT $OLD_PID"
       else
         start
       end
