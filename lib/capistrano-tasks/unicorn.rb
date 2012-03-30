@@ -20,6 +20,14 @@ def def_unicorn(_namespace, opt = {})
     def process_exists?(pid_file)
       capture("ps -p $(cat #{pid_file}) ; true").strip.split("\n").size == 2
     end
+
+    # Grep for something.
+    #
+    def grep_proc_cnt(what)
+      op = capture("ps aux | grep '#{what}' | grep -v grep").strip
+      puts op
+      op.split("\n").length
+    end
     
     # Set unicorn vars
     #
@@ -87,26 +95,27 @@ def def_unicorn(_namespace, opt = {})
         # The re-spawning algorithm is taken from:
         # http://unicorn.bogomips.org/SIGNALS.html
 
-        old_pid = capture("cat #{unicorn_pid}").strip
+        run "cp #{unicorn_pid} #{unicorn_pid}.old"
+        old_pid = "`cat #{unicorn_pid}.old`"
 
         # Spawn off a new master and it's workers.
         run "kill -s USR2 #{old_pid}"
-        while capture("ps aux | grep 'unicorn worker'").strip.split("\n") !=
-            CircleServers.app_workers * 2
+        while grep_proc_cnt('unicorn worker')!= CircleServers.app_workers * 2
           sleep 1
         end
 
+        # TODO(@myprasanna): Replace this with proper checks.
+        sleep 60
+
         # Ask the old master to gracefully shut down.
         run "kill -s WINCH #{old_pid}"
-        while capture("ps aux | grep 'unicorn worker'").strip.split("\n") !=
-            CircleServers.app_workers
+        while grep_proc_cnt('unicorn worker') != CircleServers.app_workers
           sleep 1
         end
 
         # Now that the workers are down, kill the old master.
         run "kill -s QUIT #{old_pid}"
-        while capture("ps aux | grep 'unicorn master'").strip.split("\n") !=
-            1
+        while grep_proc_cnt('unicorn master') != 1
           sleep 1
         end
         
