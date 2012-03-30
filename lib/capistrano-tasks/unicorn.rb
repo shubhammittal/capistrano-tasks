@@ -87,23 +87,25 @@ def def_unicorn(_namespace, opt = {})
         # The re-spawning algorithm is taken from:
         # http://unicorn.bogomips.org/SIGNALS.html
 
+        old_pid = capture("cat #{unicorn_pid}").strip
+
         # Spawn off a new master and it's workers.
-        run "OLD_PID=`cat #{unicorn_pid}`; kill -s USR2 $OLD_PID"
-        while capture("ps aux | grep unicorn worker").strip.split("\n") !=
+        run "kill -s USR2 #{old_pid}"
+        while capture("ps aux | grep 'unicorn worker'").strip.split("\n") !=
             CircleServers.app_workers * 2
           sleep 1
         end
 
         # Ask the old master to gracefully shut down.
-        run "OLD_PID=`cat #{unicorn_pid}`; kill -s WINCH $OLD_PID"
-        while capture("ps aux | grep unicorn worker").strip.split("\n") !=
+        run "kill -s WINCH #{old_pid}"
+        while capture("ps aux | grep 'unicorn worker'").strip.split("\n") !=
             CircleServers.app_workers
           sleep 1
         end
 
         # Now that the workers are down, kill the old master.
-        run "OLD_PID=`cat #{unicorn_pid}`; kill -s QUIT $OLD_PID"
-        while capture("ps aux | grep unicorn master").strip.split("\n") !=
+        run "kill -s QUIT #{old_pid}"
+        while capture("ps aux | grep 'unicorn master'").strip.split("\n") !=
             1
           sleep 1
         end
