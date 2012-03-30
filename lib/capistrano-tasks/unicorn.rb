@@ -105,6 +105,7 @@ def def_unicorn(_namespace, opt = {})
         end
 
         # TODO(@myprasanna): Replace this with proper checks.
+        puts "Sleeping for the servers to startup..."
         sleep 60
 
         # Ask the old master to gracefully shut down.
