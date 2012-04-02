@@ -3,6 +3,7 @@
 def def_unicorn(_namespace, opt = {})
   roles = opt[:roles] || :app
   bootup_timeout = opt[:bootup_timeout] || 30
+  workers = opt[:workers] || 2
 
   namespace _namespace do
     
@@ -100,7 +101,7 @@ def def_unicorn(_namespace, opt = {})
 
         # Spawn off a new master and it's workers.
         run "kill -s USR2 #{old_pid}"
-        while grep_proc_cnt('unicorn worker')!= CircleServers.app_workers * 2
+        while grep_proc_cnt('unicorn worker')!= workers * 2
           sleep 1
         end
 
@@ -110,7 +111,7 @@ def def_unicorn(_namespace, opt = {})
 
         # Ask the old master to gracefully shut down.
         run "kill -s WINCH #{old_pid}"
-        while grep_proc_cnt('unicorn worker') != CircleServers.app_workers
+        while grep_proc_cnt('unicorn worker') != workers
           sleep 1
         end
 
