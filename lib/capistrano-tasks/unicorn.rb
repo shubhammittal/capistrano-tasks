@@ -107,7 +107,7 @@ def def_unicorn(_namespace, opt = {})
 
         # TODO(@myprasanna): Replace this with proper checks.
         puts "Sleeping for the servers to startup..."
-        sleep 60
+        sleep 180
 
         # Ask the old master to gracefully shut down.
         run "kill -s WINCH #{old_pid}"
