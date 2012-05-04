@@ -4,6 +4,21 @@ module CapistranoTasks
   module Unicorn
     def self.load_into(configuration, _namespace, opt = {})
       configuration.load do
+
+        # This code is modified from the capistrano-unicorn gem:
+        # https://github.com/sosedoff/capistrano-unicorn/
+        
+        # Check if remote file exists
+        #
+        def remote_file_exists?(full_path)
+          'true' == capture("if [ -e #{full_path} ]; then echo 'true'; fi").strip
+        end
+        
+        # Check if process is running
+        #
+        def process_exists?(pid_file)
+          capture("ps -p $(cat #{pid_file}) ; true").strip.split("\n").size == 2
+        end
         
         roles = opt[:roles] || :app
         bootup_timeout = opt[:bootup_timeout] || 30
@@ -11,20 +26,6 @@ module CapistranoTasks
         
         namespace _namespace do
           
-          # This code is modified from the capistrano-unicorn gem:
-          # https://github.com/sosedoff/capistrano-unicorn/
-          
-          # Check if remote file exists
-          #
-          def remote_file_exists?(full_path)
-            'true' == capture("if [ -e #{full_path} ]; then echo 'true'; fi").strip
-          end
-          
-          # Check if process is running
-          #
-          def process_exists?(pid_file)
-            capture("ps -p $(cat #{pid_file}) ; true").strip.split("\n").size == 2
-          end
           
           # Grep for something.
           #
