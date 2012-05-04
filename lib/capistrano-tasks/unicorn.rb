@@ -1,12 +1,13 @@
 
 # define a task for a rails app running in unicorn
-
 module CapistranoTasks
   module Unicorn
     def self.load_into(configuration, _namespace, opt = {})
       configuration.load do
+        
         roles = opt[:roles] || :app
         bootup_timeout = opt[:bootup_timeout] || 30
+        workers = opt[:workers] || 2
         
         namespace _namespace do
           
@@ -23,6 +24,14 @@ module CapistranoTasks
           #
           def process_exists?(pid_file)
             capture("ps -p $(cat #{pid_file}) ; true").strip.split("\n").size == 2
+          end
+          
+          # Grep for something.
+          #
+          def grep_proc_cnt(what)
+            op = capture("ps aux | grep '#{what}' | grep -v grep").strip
+            puts op
+            op.split("\n").length
           end
           
           # Set unicorn vars
@@ -87,14 +96,40 @@ module CapistranoTasks
           task :reload, :roles => roles, :except => {:no_release => true} do
             if remote_file_exists?(unicorn_pid) && process_exists?(unicorn_pid)
               logger.important("Stopping...", "Unicorn")
-              run "export OLD_PID=`cat #{unicorn_pid}`; kill -s USR2 $OLD_PID && sleep #{bootup_timeout} && kill -s QUIT $OLD_PID"
+              
+              # The re-spawning algorithm is taken from:
+              # http://unicorn.bogomips.org/SIGNALS.html
+              
+              run "cp #{unicorn_pid} #{unicorn_pid}.old"
+              old_pid = "`cat #{unicorn_pid}.old`"
+              
+              # Spawn off a new master and it's workers.
+              run "kill -s USR2 #{old_pid}"
+              while grep_proc_cnt('unicorn worker')!= workers * 2
+                sleep 1
+              end
+              
+              # TODO(@myprasanna): Replace this with proper checks.
+              puts "Sleeping for the servers to startup..."
+              sleep 60
+              
+              # Ask the old master to gracefully shut down.
+              run "kill -s WINCH #{old_pid}"
+              while grep_proc_cnt('unicorn worker') != workers
+                sleep 1
+              end
+              
+              # Now that the workers are down, kill the old master.
+              run "kill -s QUIT #{old_pid}"
+              while grep_proc_cnt('unicorn master') != 1
+                sleep 1
+              end
+              
             else
               start
             end
           end
         end
-        
-        # after "deploy:restart", "unicorn:reload"
       end
     end
   end
