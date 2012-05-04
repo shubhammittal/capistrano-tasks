@@ -1,3 +1,4 @@
+require "capistrano"
 require "capistrano-tasks/version"
 
 module Capistrano
