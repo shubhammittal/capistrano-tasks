@@ -17,7 +17,9 @@ module CapistranoTasks
         # Check if process is running
         #
         def process_exists?(pid_file)
-          capture("ps -p $(cat #{pid_file}) ; true").strip.split("\n").size == 2
+          pid = capture("cat #{pid_file} || true").strip
+          return if pid == ""
+          capture("kill -0 #{pid} && echo 'true'").strip == "true"
         end
         
         roles = opt[:roles] || :app
@@ -74,7 +76,7 @@ module CapistranoTasks
             if remote_file_exists?(unicorn_pid)
               if process_exists?(unicorn_pid)
                 logger.important("Stopping...", "Unicorn")
-                run "#{try_sudo} kill `cat #{unicorn_pid}`"
+                run "kill `cat #{unicorn_pid}`"
               else
                 run "rm #{unicorn_pid}"
                 logger.important("Unicorn is not running.", "Unicorn")
@@ -89,13 +91,20 @@ module CapistranoTasks
             if remote_file_exists?(unicorn_pid)
               if process_exists?(unicorn_pid)
                 logger.important("Stopping...", "Unicorn")
-                run "#{try_sudo} kill -s QUIT `cat #{unicorn_pid}`"
+                run "kill -s QUIT `cat #{unicorn_pid}`"
               else
                 run "rm #{unicorn_pid}"
                 logger.important("Unicorn is not running.", "Unicorn")
               end
             else
               logger.important("No PIDs found. Check if unicorn is running.", "Unicorn")
+            end
+          end
+
+          desc 'wait till unicorn no longer exists'
+          task :wait_till_dead, :roles => roles, :exception => { :no_release => true } do
+            while remote_file_exists?(unicorn_pid) && process_exists?(unicorn_pid)
+              puts "still running"
             end
           end
           

@@ -5,15 +5,35 @@ describe CapistranoTasks::Unicorn do
     setup_configuration
   end
 
+  def port_open?(port)
+    begin
+      Timeout::timeout(1) do
+        begin
+          s = TCPSocket.new("localhost", port)
+          s.close
+          return true
+        rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH => e
+          p e
+          return false
+        end
+      end
+    rescue Timeout::Error
+      puts "timeout error"
+      false
+    end
+  end
+
   def setup_configuration(params = {})
     @configuration = Capistrano::Configuration.new
-    @configuration.set :current_path, "/home/arnold/builds/capistrano-tasks/tmp"
+    @configuration.set :current_path, "/home/arnold/builds/capistrano-tasks/spec/app"
     CapistranoTasks::Unicorn.load_into(@configuration, "test_c", params)
 
     # some basic machine configuration
-    @configuration.role(:app, "arnold-test.internal.lal.com")
-    @configuration.set(:user, "ubuntu")
+    @configuration.role(:app, "localhost")
     @configuration.set(:ssh_options, { :forward_agent => true })
+    @configuration.set(:current_path, File.dirname(__FILE__) + "/app")
+    @configuration.set(:default_run_options, { :env => get_env })
+    @configuration.run("mkdir -p #{File.dirname(@configuration.fetch(:unicorn_pid))}")
   end
 
   # random test for the sake of seeing how tests work
@@ -34,5 +54,45 @@ describe CapistranoTasks::Unicorn do
   it "should be able to tell if a remote file exists" do
     @configuration.remote_file_exists?("/etc/resolv.conf").must_equal true
     @configuration.remote_file_exists?("/etc/does-not-exist").must_equal false
+  end
+
+  it "should be able to stop task when nothing is running" do
+    @configuration.find_and_execute_task("test_c:stop")
+  end
+
+  def get_env
+    export = ["PATH", "RBENV_ROOT"]
+    hs = {}
+    export.each { |i| hs[i] = ENV[i] }
+    hs
+  end
+
+  def run_task(taskname, opts = {}) 
+    env = opts[:env] || {}
+    opts[:env] = get_env.merge(env)
+    opts[:pty] = true
+    p opts
+    @configuration.find_and_execute_task(taskname, opts) { |e, i, data| 
+      puts data
+    }
+  end
+
+  it "should be able to start up a unicorn" do
+    # port 3000 must be closed
+    port_open?(3000).must_equal(false, "port musn't already be open")
+    run_task("test_c:start")
+    @configuration.remote_file_exists?(@configuration.fetch(:unicorn_pid)).must_equal(true)
+    port_open?(3000).must_equal(true, "port is open now")
+    run_task("test_c:graceful_stop")
+    run_task("test_c:wait_till_dead")
+    port_open?(3000).must_equal(false, "port is back closed now")
+  end
+
+  it "umm, no use just checking env" do
+    puts "foobar"
+    @configuration.run("echo 'helloworld'", :pty => true)
+    @configuration.run("env") { |e, i, data|
+      puts data
+    }
   end
 end
