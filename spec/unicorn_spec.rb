@@ -24,6 +24,7 @@ describe CapistranoTasks::Unicorn do
   end
 
   def setup_configuration(params = {})
+    params = { :workers => 1 }.merge(params)
     @configuration = Capistrano::Configuration.new
     @configuration.set :current_path, "/home/arnold/builds/capistrano-tasks/spec/app"
     CapistranoTasks::Unicorn.load_into(@configuration, "test_c", params)
@@ -67,16 +68,6 @@ describe CapistranoTasks::Unicorn do
     hs
   end
 
-  def run_task(taskname, opts = {}) 
-    env = opts[:env] || {}
-    opts[:env] = get_env.merge(env)
-    opts[:pty] = true
-    p opts
-    @configuration.find_and_execute_task(taskname, opts) { |e, i, data| 
-      puts data
-    }
-  end
-
   it "should be able to start up a unicorn" do
     # port 3000 must be closed
     port_open?(3000).must_equal(false, "port musn't already be open")
@@ -88,10 +79,26 @@ describe CapistranoTasks::Unicorn do
     port_open?(3000).must_equal(false, "port is back closed now")
   end
 
-  it "umm, no use just checking env" do
-    puts "foobar"
-    @configuration.run("echo 'helloworld'", :pty => true)
-    @configuration.run("env") { |e, i, data|
+  it "restarting unicorn" do
+    setup_configuration(:bootup_timeout => 10)
+    # port 3000 must be closed
+    port_open?(3000).must_equal(false, "port musn't already be open")
+    run_task("test_c:start")
+    @configuration.remote_file_exists?(@configuration.fetch(:unicorn_pid)).must_equal(true)
+    port_open?(3000).must_equal(true, "port is open now")
+    run_task("test_c:reload")
+    port_open?(3000).must_equal(true, "port is open now")
+    run_task("test_c:graceful_stop")
+    run_task("test_c:wait_till_dead")
+    port_open?(3000).must_equal(false, "port is back closed now")
+  end
+
+  def run_task(taskname, opts = {}) 
+    env = opts[:env] || {}
+    opts[:env] = get_env.merge(env)
+    opts[:pty] = true
+    p opts
+    @configuration.find_and_execute_task(taskname, opts) { |e, i, data| 
       puts data
     }
   end
