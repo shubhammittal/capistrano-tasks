@@ -63,6 +63,12 @@ module CapistranoTasks
             end
           end
           
+
+          desc 'Check current unicorn status'
+          task :status, :roles => roles, :except => { :no_release => true } do
+            run("false") if !remote_file_exists?(unicorn_pid)
+          end
+
           desc 'Stop Unicorn'
           task :stop, :roles => roles, :except => {:no_release => true} do
             if remote_file_exists?(unicorn_pid)
