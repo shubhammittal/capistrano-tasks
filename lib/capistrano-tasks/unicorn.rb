@@ -142,6 +142,9 @@ module CapistranoTasks
   end
 end
 
-def def_unicorn(_namespace, opts) 
+## Pass "self" to configuration if you're calling it from deploy.rb or similar
+##
+def def_unicorn(configuration, _namespace, opts) 
+  raise "invalid configuration object" unless configuration.instance_of? Capistrano::Configuration
   CapistranoTasks::Unicorn.load_into(Capistrano::Configuration.instance, _namespace, opts)
 end
