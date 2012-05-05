@@ -1,5 +1,6 @@
 require "capistrano"
 require "capistrano-tasks/version"
+require "capistrano-tasks/unicorn"
 
 module Capistrano
   module Tasks
