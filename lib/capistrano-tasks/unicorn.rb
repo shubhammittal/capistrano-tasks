@@ -21,7 +21,20 @@ module CapistranoTasks
           return if pid == ""
           capture("kill -0 #{pid} && echo 'true'").strip == "true"
         end
-        
+
+        def unicorn_send_signal(signal, raise_on_error = false)
+          if remote_file_exists?(unicorn_pid)
+            if process_exists?(unicorn_pid)
+              logger.important("Stopping...", "Unicorn")
+              run "kill `cat #{unicorn_pid}`"
+              return
+            end
+          end
+          if raise_on_error
+            raise "unicorn process does not exist"
+          end
+        end
+
         roles = opt[:roles] || :app
         bootup_timeout = opt[:bootup_timeout] || 30
         workers = opt[:workers] || 2
@@ -65,6 +78,16 @@ module CapistranoTasks
             end
           end
           
+
+          desc 'send TTIN signal (increment workers by 1)'
+          task :increment, :roles => roles, :exception => { :no_release => true } do
+            unicorn_send_signal("TTIN")
+          end
+
+          desc 'send TTOU signal (decrement workers by 1)'
+          task :decrement, :roles => roles, :exception => { :no_release => true } do
+            unicorn_send_signal("TTOU")
+          end
 
           desc 'Check current unicorn status'
           task :status, :roles => roles, :except => { :no_release => true } do

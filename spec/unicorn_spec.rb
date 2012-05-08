@@ -88,6 +88,26 @@ describe CapistranoTasks::Unicorn do
     port_open?(3000).must_equal(true, "port is open now")
     run_task("test_c:reload")
     port_open?(3000).must_equal(true, "port is open now")
+    safe_stop
+  end
+
+  it "should be able to send signals to unicorn" do
+    @configuration.unicorn_send_signal("QUIT")
+    (1..10).each { |i|
+      puts "checking if port is open"
+      return if !port_open?(3000)
+    }
+    fail "unicorn process failed to receive signal"
+  end
+
+  it "should be able to reduce workers to zero, and then port would be closed obviously" do
+    run_task "test_c:decrement"
+    sleep 2
+    assert !port_open?(3000), "port should no longer be opened since there's no worker"
+    safe_stop
+  end
+
+  def safe_stop
     run_task("test_c:graceful_stop")
     run_task("test_c:wait_till_dead")
     port_open?(3000).must_equal(false, "port is back closed now")
