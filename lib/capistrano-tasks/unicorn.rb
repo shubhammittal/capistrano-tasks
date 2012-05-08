@@ -18,15 +18,15 @@ module CapistranoTasks
         #
         def process_exists?(pid_file)
           pid = capture("cat #{pid_file} || true").strip
-          return if pid == ""
+          return false if pid == ""
           capture("kill -0 #{pid} && echo 'true'").strip == "true"
         end
 
-        def unicorn_send_signal(signal, raise_on_error = false)
-          if remote_file_exists?(unicorn_pid)
-            if process_exists?(unicorn_pid)
-              logger.important("Stopping...", "Unicorn")
-              run "kill `cat #{unicorn_pid}`"
+        def unicorn_send_signal(signal, raise_on_error = false, pidfile = unicorn_pid)
+          if remote_file_exists?(pidfile)
+            if process_exists?(pidfile)
+              logger.important("Sending #{signal} to unicorn", "Unicorn")
+              run "kill -#{signal} `cat #{pidfile}`"
               return
             end
           end
@@ -45,7 +45,7 @@ module CapistranoTasks
           # Grep for something.
           #
           def grep_proc_cnt(what)
-            op = capture("ps aux | grep '#{what}' | grep -v grep").strip
+            op = capture("ps aux | grep '#{what}' | grep -v grep || true").strip
             puts op
             op.split("\n").length
           end
@@ -81,12 +81,12 @@ module CapistranoTasks
 
           desc 'send TTIN signal (increment workers by 1)'
           task :increment, :roles => roles, :exception => { :no_release => true } do
-            unicorn_send_signal("TTIN")
+            unicorn_send_signal("TTIN", true)
           end
 
           desc 'send TTOU signal (decrement workers by 1)'
           task :decrement, :roles => roles, :exception => { :no_release => true } do
-            unicorn_send_signal("TTOU")
+            unicorn_send_signal("TTOU", true)
           end
 
           desc 'Check current unicorn status'
@@ -111,22 +111,14 @@ module CapistranoTasks
           
           desc 'Unicorn graceful shutdown'
           task :graceful_stop, :roles => roles, :except => {:no_release => true} do
-            if remote_file_exists?(unicorn_pid)
-              if process_exists?(unicorn_pid)
-                logger.important("Stopping...", "Unicorn")
-                run "kill -s QUIT `cat #{unicorn_pid}`"
-              else
-                run "rm #{unicorn_pid}"
-                logger.important("Unicorn is not running.", "Unicorn")
-              end
-            else
-              logger.important("No PIDs found. Check if unicorn is running.", "Unicorn")
-            end
+            unicorn_send_signal("QUIT", false, unicorn_pid + ".oldbin")
+            unicorn_send_signal("QUIT", false, unicorn_pid)
           end
 
           desc 'wait till unicorn no longer exists'
           task :wait_till_dead, :roles => roles, :exception => { :no_release => true } do
-            while remote_file_exists?(unicorn_pid) && process_exists?(unicorn_pid)
+            while (remote_file_exists?(unicorn_pid) && process_exists?(unicorn_pid)) || 
+                (remote_file_exists?(unicorn_pid + ".oldbin") && process_exists?(unicorn_pid + ".oldbin"))
               puts "still running"
             end
           end
@@ -140,30 +132,32 @@ module CapistranoTasks
               # http://unicorn.bogomips.org/SIGNALS.html
               
               run "cp #{unicorn_pid} #{unicorn_pid}.old"
-              old_pid = "`cat #{unicorn_pid}.old`"
+              old_pid = "`cat #{unicorn_pid}.oldbin`"
               
               # Spawn off a new master and it's workers.
-              run "kill -s USR2 #{old_pid}"
-              while grep_proc_cnt('unicorn worker')!= workers * 2
-                sleep 1
-              end
+              # run "kill -s USR2 #{old_pid}"
+              # while grep_proc_cnt('unicorn worker')!= workers * 2
+              #   sleep 1
+              # end
               
               # TODO(@myprasanna): Replace this with proper checks.
-              puts "Sleeping for the servers to startup..."
-              sleep 60
+              puts "Sleeping #{bootup_timeout} seconds for the servers to startup..."
+              sleep bootup_timeout
               
               # Ask the old master to gracefully shut down.
-              run "kill -s WINCH #{old_pid}"
-              while grep_proc_cnt('unicorn worker') != workers
-                sleep 1
-              end
+              # run "kill -s WINCH #{old_pid}"
+              # while grep_proc_cnt('unicorn worker') != workers
+              #   sleep 1
+              # end
               
               # Now that the workers are down, kill the old master.
-              run "kill -s QUIT #{old_pid}"
-              while grep_proc_cnt('unicorn master') != 1
-                sleep 1
-              end
+              puts "Sending quit signal to #{old_pid}"
+              unicorn_send_signal("QUIT", false, old_pid)
+              # while grep_proc_cnt('unicorn master') != 1
+              #   sleep 1
+              # end
               
+              puts "we're all done"
             else
               start
             end
