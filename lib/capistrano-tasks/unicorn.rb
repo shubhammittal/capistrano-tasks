@@ -149,8 +149,8 @@ module CapistranoTasks
               end
               
               # TODO(@myprasanna): Replace this with proper checks.
-              puts "Sleeping for the servers to startup..."
-              sleep 60
+              puts "Sleeping #{bootup_timeout} seconds for the servers to startup..."
+              sleep bootup_timeout
               
               # Ask the old master to gracefully shut down.
               run "kill -s WINCH #{old_pid}"
