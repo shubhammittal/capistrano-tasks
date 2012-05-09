@@ -4,10 +4,8 @@ module CapistranoTasks
   module Unicorn
 
     # call this function from your unicorn configuration
-    def self.unicorn_configuration(configurator)
-      configurator.before_fork do |server, worker| 
-        system("kill -QUIT `cat tmp/pids/unicorn.pid.oldbin`")
-      end
+    def self.unicorn_before_fork
+      system("kill -QUIT `cat tmp/pids/unicorn.pid.oldbin`")
     end
 
     def self.load_into(configuration, _namespace, opt = {})
