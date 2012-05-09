@@ -146,10 +146,7 @@ module CapistranoTasks
               # The re-spawning algorithm is taken from:
               # http://unicorn.bogomips.org/SIGNALS.html
 
-              run "echo hello"
-              run "ls #{unicorn_pid}"
-              run "cat #{unicorn_pid}"
-              
+              old_pid = capture("cat #{unicorn_pid}")
               
               # Spawn off a new master and it's workers.
               unicorn_send_signal("USR2")
@@ -169,18 +166,13 @@ module CapistranoTasks
               # TODO(@myprasanna): Replace this with proper checks.
               puts "Sleeping #{bootup_timeout} seconds for the servers to startup..."
               sleep bootup_timeout
-              
-              # Ask the old master to gracefully shut down.
-              # run "kill -s WINCH #{old_pid}"
-              # while grep_proc_cnt('unicorn worker') != workers
-              #  sleep 1
-              # end
-              
-              # Now that the workers are down, kill the old master.
-              # run "kill -s QUIT #{old_pid}"
-              # while grep_proc_cnt('unicorn master') != 1
-              #  sleep 1
-              # end
+
+              # at this point, we need to verify that the new process
+              # is not the old process, that is: the new process did
+              # not die (if it did, the the old process will take back
+              # the pid file: I can't prove this by documentation but
+              # this is what I observed.)
+              run "test x`cat #{unicorn_pid}` != 'x#{unicorn_pid}'"
             else
               start
             end
