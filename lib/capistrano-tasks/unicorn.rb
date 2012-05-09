@@ -2,6 +2,14 @@
 # define a task for a rails app running in unicorn
 module CapistranoTasks
   module Unicorn
+
+    # call this function from your unicorn configuration
+    def self.unicorn_configuration(configurator)
+      configurator.before_fork do |server, worker| 
+        system("kill -QUIT `cat tmp/pids/unicorn.pid.oldbin`")
+      end
+    end
+
     def self.load_into(configuration, _namespace, opt = {})
       configuration.load do
 
@@ -11,6 +19,7 @@ module CapistranoTasks
         # Check if remote file exists
         #
         def remote_file_exists?(full_path)
+          puts "checking for remote file #{full_path}"
           'true' == capture("if [ -e #{full_path} ]; then echo 'true'; fi").strip
         end
         
@@ -25,8 +34,8 @@ module CapistranoTasks
         def unicorn_send_signal(signal, raise_on_error = false)
           if remote_file_exists?(unicorn_pid)
             if process_exists?(unicorn_pid)
-              logger.important("Stopping...", "Unicorn")
-              run "kill `cat #{unicorn_pid}`"
+              logger.important("Sending #{signal}...", "Unicorn")
+              run "kill -#{signal} `cat #{unicorn_pid}`"
               return
             end
           end
@@ -134,17 +143,28 @@ module CapistranoTasks
           desc 'Reload Unicorn'
           task :reload, :roles => roles, :except => {:no_release => true} do
             if remote_file_exists?(unicorn_pid) && process_exists?(unicorn_pid)
-              logger.important("Stopping...", "Unicorn")
+              logger.important("Reloading...", "Unicorn")
               
               # The re-spawning algorithm is taken from:
               # http://unicorn.bogomips.org/SIGNALS.html
+
+              run "echo hello"
+              run "ls #{unicorn_pid}"
+              run "cat #{unicorn_pid}"
               
-              run "cp #{unicorn_pid} #{unicorn_pid}.old"
-              old_pid = "`cat #{unicorn_pid}.old`"
               
               # Spawn off a new master and it's workers.
-              run "kill -s USR2 #{old_pid}"
-              while grep_proc_cnt('unicorn worker')!= workers * 2
+              unicorn_send_signal("USR2")
+
+              # make sure that the oldbin was at least created
+              while !remote_file_exists?(unicorn_pid + ".oldbin")
+                sleep 0.1
+              end
+
+              # now wait for the oldbin to go away, that's the
+              # indication that we have just one master now.
+              while remote_file_exists?(unicorn_pid + ".oldbin")
+                logger.info("Waiting for old process to die")
                 sleep 1
               end
               
@@ -153,17 +173,16 @@ module CapistranoTasks
               sleep bootup_timeout
               
               # Ask the old master to gracefully shut down.
-              run "kill -s WINCH #{old_pid}"
-              while grep_proc_cnt('unicorn worker') != workers
-                sleep 1
-              end
+              # run "kill -s WINCH #{old_pid}"
+              # while grep_proc_cnt('unicorn worker') != workers
+              #  sleep 1
+              # end
               
               # Now that the workers are down, kill the old master.
-              run "kill -s QUIT #{old_pid}"
-              while grep_proc_cnt('unicorn master') != 1
-                sleep 1
-              end
-              
+              # run "kill -s QUIT #{old_pid}"
+              # while grep_proc_cnt('unicorn master') != 1
+              #  sleep 1
+              # end
             else
               start
             end

@@ -1,4 +1,5 @@
 require "test_helper"
+require "net/http"
 
 describe CapistranoTasks::Unicorn do
   before do
@@ -19,6 +20,17 @@ describe CapistranoTasks::Unicorn do
       end
     rescue Timeout::Error
       puts "timeout error"
+      false
+    end
+  end
+
+  def http_open?(port)
+    begin
+      Timeout::timeout(2) do
+        Net::HTTP.get(URI.parse("http://localhost:#{port}"))
+        true
+      end
+    rescue Timeout::Error, Errno::ECONNREFUSED, Errno::EHOSTUNREACH
       false
     end
   end
@@ -82,12 +94,12 @@ describe CapistranoTasks::Unicorn do
   it "restarting unicorn" do
     setup_configuration(:bootup_timeout => 10)
     # port 3000 must be closed
-    port_open?(3000).must_equal(false, "port musn't already be open")
+    http_open?(3000).must_equal(false, "port musn't already be open")
     run_task("test_c:start")
     @configuration.remote_file_exists?(@configuration.fetch(:unicorn_pid)).must_equal(true)
-    port_open?(3000).must_equal(true, "port is open now")
+    http_open?(3000).must_equal(true, "port is open now")
     run_task("test_c:reload")
-    port_open?(3000).must_equal(true, "port is open now")
+    http_open?(3000).must_equal(true, "port is open now")
     safe_stop
   end
 
