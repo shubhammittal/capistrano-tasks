@@ -172,7 +172,7 @@ module CapistranoTasks
               # not die (if it did, the the old process will take back
               # the pid file: I can't prove this by documentation but
               # this is what I observed.)
-              run "test x`cat #{unicorn_pid}` != 'x#{unicorn_pid}'"
+              run "test x`cat #{unicorn_pid}` != 'x#{old_pid}'"
             else
               start
             end
