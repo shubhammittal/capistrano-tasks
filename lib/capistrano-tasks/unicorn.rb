@@ -146,7 +146,7 @@ module CapistranoTasks
               # The re-spawning algorithm is taken from:
               # http://unicorn.bogomips.org/SIGNALS.html
 
-              old_pid = capture("cat #{unicorn_pid}")
+              old_pid = capture("cat #{unicorn_pid}").strip
               
               # Spawn off a new master and it's workers.
               unicorn_send_signal("USR2")
