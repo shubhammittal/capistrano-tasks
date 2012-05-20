@@ -26,7 +26,7 @@ module CapistranoTasks
         def process_exists?(pid_file)
           pid = capture("cat #{pid_file} || true").strip
           return if pid == ""
-          capture("kill -0 #{pid} && echo 'true'").strip == "true"
+          capture("( kill -0 #{pid} && echo 'true' ) || echo 'false'").strip == "true"
         end
 
         def unicorn_send_signal(signal, raise_on_error = false)
@@ -65,21 +65,19 @@ module CapistranoTasks
           set(:unicorn_bin, "unicorn")
           set(:bootup_timeout, bootup_timeout)
           
+          desc 'Cleanup stale pid files'
+          task :cleanup_pid do
+            # either pid file doesn't exist, or the process doesn't exist, or delete the pid file
+            run "test ! -f #{unicorn_pid} || ! ( kill -0 `cat #{unicorn_pid}` ) || rm -f #{unicorn_pid} "
+          end
+
           desc 'Start Unicorn'
           task :start, :roles => roles, :except => {:no_release => true} do
-            if remote_file_exists?(unicorn_pid)
-              if process_exists?(unicorn_pid)
-                logger.important("Unicorn is already running!", "Unicorn")
-                next
-              else
-                run "rm #{unicorn_pid}"
-              end
-            end
-            
+            cleanup_pid
             config_path = "#{current_path}/config/unicorn/#{app_env}.rb"
             if remote_file_exists?(config_path)
               logger.important("Starting...", "Unicorn")
-              run "cd #{current_path} && BUNDLE_GEMFILE=#{current_path}/Gemfile bundle exec #{unicorn_bin} -c #{config_path} -E #{app_env} -D"
+              run "test -f #{unicorn_pid} || ( cd #{current_path} && BUNDLE_GEMFILE=#{current_path}/Gemfile bundle exec #{unicorn_bin} -c #{config_path} -E #{app_env} -D )"
             else
               logger.important("Config file for \"#{unicorn_env}\" environment was not found at \"#{config_path}\"", "Unicorn")
             end
