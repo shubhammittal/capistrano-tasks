@@ -103,6 +103,19 @@ describe CapistranoTasks::Unicorn do
     safe_stop
   end
 
+  it "restarting unicorn after being KILLed" do
+    setup_configuration(:bootup_timeout => 10)
+    # port 3000 must be closed
+    http_open?(3000).must_equal(false, "port musn't already be open")
+    run_task("test_c:start")
+    http_open?(3000).must_equal(true, "port is open now")
+    system("kill -KILL `cat #{@configuration.fetch(:unicorn_pid)}`")
+    sleep 5
+    run_task("test_c:reload")
+    http_open?(3000).must_equal(true, "port is open now")
+    safe_stop
+  end
+
   it "should be able to send signals to unicorn" do
     @configuration.unicorn_send_signal("QUIT")
     (1..10).each { |i|
