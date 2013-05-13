@@ -67,8 +67,8 @@ module CapistranoTasks
           
           desc 'Cleanup stale pid files'
           task :cleanup_pid do
-            # either pid file doesn't exist, or the process doesn't exist, or delete the pid file
-            run "test ! -f #{unicorn_pid} || ! ( kill -0 `cat #{unicorn_pid}` ) || rm -f #{unicorn_pid} "
+            # either pid file doesn't exist, or the process doesn't exist and if so delete the pid file
+            run "test ! -f #{unicorn_pid} || ( !( kill -0 `cat #{unicorn_pid}` ) && rm -f #{unicorn_pid} )"
           end
 
           desc 'Start Unicorn'
